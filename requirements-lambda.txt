@@ -1,0 +1,9 @@
+awslambdaric==2.0.11
+fastapi==0.115.0
+numpy==1.26.4
+pillow==10.3.0
+requests==2.32.3
+sentence-transformers==2.6.1
+torch==2.2.2
+torchvision==0.17.2
+uvicorn[standard]==0.30.1

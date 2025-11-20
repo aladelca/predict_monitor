@@ -89,3 +89,41 @@ Puedes abrir `http://127.0.0.1:8000/docs` para explorar la documentación intera
 - Si necesitas afinar el rendimiento, puedes inicializar `PricePredictor(auto_load=False)` y decidir manualmente cuándo invocar `load()` (por ejemplo, en workers asincrónicos).
 - No se incluyen pruebas unitarias; se recomienda añadirlas si planeas desplegar en producción o automatizar regresiones.
 
+## Despliegue en AWS Lambda con contenedores
+
+Se añadió un `Dockerfile` que construye una imagen basada en `public.ecr.aws/lambda/python:3.11` lista para publicar como función Lambda. La imagen incluye:
+
+- Dependencias declaradas en `requirements-lambda.txt` (FastAPI + stack de inferencia + `awslambdaric`).
+- El archivo de pesos `model.pth` y el código de `src/`.
+- `lambda_function.py`, que expone `lambda_handler` y recibe eventos con `image_url` y `description`.
+- Descarga anticipada de los pesos de SentenceTransformer y ResNet18 para que la función no requiera acceso a internet en tiempo de ejecución.
+
+### Construcción y prueba local
+
+```bash
+# 1. Construir la imagen
+docker build -t multimodal-lambda .
+
+# 2. Probar localmente usando el runtime de Lambda en contenedores
+docker run -p 9000:8080 multimodal-lambda
+
+# 3. En otra terminal, invocar la función
+curl -X POST "http://127.0.0.1:9000/2015-03-31/functions/function/invocations" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "image_url": "https://ruta/a/tu/imagen.jpg",
+           "description": "Descripción del producto"
+         }'
+```
+
+La respuesta tendrá el formato `{"predicted_price": 123.45}` o un mensaje de error estructurado. Desde aquí puedes etiquetar y publicar la imagen en ECR para conectar la función Lambda con API Gateway u otros disparadores.
+
+## Automatización con GitHub Actions
+
+Cada `push` dispara el flujo `.github/workflows/deploy-lambda.yml`, que construye la imagen Docker, la publica en el repositorio de ECR `monitor_predict` y actualiza la función Lambda asociada mediante `aws lambda update-function-code`. Antes de ejecutarlo configura estos *Secrets* en el repositorio:
+
+- `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`: credenciales con permisos para Amazon ECR y AWS Lambda.
+- `AWS_REGION`: región donde viven la función y el repositorio (por ejemplo, `us-east-1`).
+- `LAMBDA_FUNCTION_NAME`: nombre exacto de la función Lambda que debe actualizarse.
+
+Si usas credenciales temporales agrega `AWS_SESSION_TOKEN`. El flujo crea el repositorio `monitor_predict` si no existe, etiqueta las imágenes con el `SHA` del commit y `latest`, y siempre actualiza la función con la imagen del commit, manteniendo un historial rastreable de despliegues.
