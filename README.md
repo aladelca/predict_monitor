@@ -88,6 +88,7 @@ Puedes abrir `http://127.0.0.1:8000/docs` para explorar la documentación intera
 - La carga del checkpoint contempla formatos guardados como diccionarios o modelos completos y maneja los cambios recientes de seguridad en `torch.load`.
 - Si necesitas afinar el rendimiento, puedes inicializar `PricePredictor(auto_load=False)` y decidir manualmente cuándo invocar `load()` (por ejemplo, en workers asincrónicos).
 - No se incluyen pruebas unitarias; se recomienda añadirlas si planeas desplegar en producción o automatizar regresiones.
+- `DEFAULT_MODEL_PATH` detecta automáticamente `MODEL_PATH` si está definido y cae en `artifacts/model.pth`, `model.pth` o `model_weights.pth`; así puedes reubicar los pesos sin modificar código.
 
 ## Despliegue en AWS Lambda con contenedores
 
@@ -97,6 +98,7 @@ Se añadió un `Dockerfile` que construye una imagen basada en `public.ecr.aws/l
 - El archivo de pesos `model.pth` y el código de `src/`.
 - `lambda_function.py`, que expone `lambda_handler` y recibe eventos con `image_url` y `description`.
 - Descarga anticipada de los pesos de SentenceTransformer y ResNet18 para que la función no requiera acceso a internet en tiempo de ejecución.
+- Exporta `MODEL_PATH=/var/task/artifacts/model.pth` para evitar que Lambda intente interpretar el archivo binario `model.pth` como un archivo `.pth` de `site-packages`.
 
 ### Construcción y prueba local
 
